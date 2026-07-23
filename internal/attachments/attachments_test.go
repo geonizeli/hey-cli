@@ -52,6 +52,8 @@ func TestUploadFlow(t *testing.T) {
 	var gotBlob Blob
 	var putBody []byte
 	var putContentType string
+	var putContentLength int64
+	var putTransferEncoding []string
 
 	mux := http.NewServeMux()
 	srv := httptest.NewServer(mux)
@@ -62,6 +64,8 @@ func TestUploadFlow(t *testing.T) {
 			t.Errorf("blob PUT method = %s, want PUT", r.Method)
 		}
 		putContentType = r.Header.Get("Content-Type")
+		putContentLength = r.ContentLength
+		putTransferEncoding = append([]string(nil), r.TransferEncoding...)
 		b, _ := io.ReadAll(r.Body)
 		putBody = b
 		w.WriteHeader(http.StatusNoContent)
@@ -100,6 +104,12 @@ func TestUploadFlow(t *testing.T) {
 	}
 	if putContentType != "image/png" {
 		t.Errorf("PUT content type = %q, want image/png", putContentType)
+	}
+	if putContentLength != int64(len(data)) {
+		t.Errorf("PUT content length = %d, want %d", putContentLength, len(data))
+	}
+	if len(putTransferEncoding) != 0 {
+		t.Errorf("PUT transfer encoding = %v, want none", putTransferEncoding)
 	}
 	if att.SGID != "sgid-xyz" {
 		t.Errorf("attachment SGID = %q, want sgid-xyz", att.SGID)

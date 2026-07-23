@@ -140,7 +140,7 @@ func (u *Uploader) Upload(ctx context.Context, path string) (*Attachment, error)
 		return nil, apierr.ErrAPI(0, "direct upload response missing attachable SGID")
 	}
 
-	if err := u.put(ctx, upload, file); err != nil {
+	if err := u.put(ctx, upload, file, blob.ByteSize); err != nil {
 		return nil, err
 	}
 
@@ -153,11 +153,16 @@ func (u *Uploader) Upload(ctx context.Context, path string) (*Attachment, error)
 	}, nil
 }
 
-func (u *Uploader) put(ctx context.Context, upload *DirectUpload, body io.Reader) error {
+func (u *Uploader) put(ctx context.Context, upload *DirectUpload, body io.Reader, byteSize int64) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, upload.URL, body)
 	if err != nil {
 		return apierr.ErrAPI(0, fmt.Sprintf("could not build upload request: %v", err))
 	}
+	// os.File is not one of the body types for which net/http infers a content
+	// length. Without this, Go sends the PUT using chunked transfer encoding.
+	// Active Storage's presigned object-storage URL expects the exact byte
+	// length and rejects the chunked request with SignatureDoesNotMatch.
+	req.ContentLength = byteSize
 	for k, v := range upload.Headers {
 		req.Header.Set(k, v)
 	}
